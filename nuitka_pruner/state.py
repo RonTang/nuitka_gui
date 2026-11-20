@@ -21,6 +21,7 @@ def new_state():
         "deep_review_pending": [],
         "deep_review_rounds": 0,
         "deep_review_initialized": False,
+        "ddmin_progress": {"n": 0, "size": 0},
         "history": [],
         "baseline": {},
         "final": {},

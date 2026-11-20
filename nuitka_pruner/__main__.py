@@ -22,6 +22,7 @@ def parser():
     result.add_argument("--icon", default="")
     result.add_argument("--extra-args", default="")
     result.add_argument("--deep-review", action="store_true")
+    result.add_argument("--full-ddmin", action="store_true")
     result.add_argument("--deep-review-attempts", type=int, default=5)
     result.add_argument("--custom-onefile", action="store_true")
     result.add_argument("--signed-plugin", default="")
@@ -46,6 +47,7 @@ def main():
         "icon": args.icon,
         "extra_args": args.extra_args,
         "deep_review": args.deep_review,
+        "full_ddmin": args.full_ddmin,
         "deep_review_attempts": args.deep_review_attempts,
         "custom_onefile": args.custom_onefile,
         "signed_plugin": args.signed_plugin,

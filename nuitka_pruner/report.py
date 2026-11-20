@@ -16,6 +16,7 @@ def command_text(command):
 
 
 def make_report(state):
+    config = state.get("config") or {}
     baseline = state["baseline"].get("size_bytes", 0)
     final = state["final"].get("size_bytes", 0)
     saved = baseline - final
@@ -26,6 +27,8 @@ def make_report(state):
         if "被字符串引用，可能动态导入" in candidate.get("risk_reasons", []):
             warnings.append(f"{name}: 被字符串引用，请确认冒烟测试覆盖动态导入路径")
     return {
+        "verification_mode": "full-ddmin" if config.get("full_ddmin") else "fast-layered",
+        "smoke_mode": "automatic" if config.get("auto_smoke", True) else "strict-custom",
         "required": state["required"],
         "excluded": state["excluded"],
         "baseline_size_bytes": baseline,

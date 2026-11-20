@@ -158,7 +158,8 @@ class PrunerEngine:
         config = PrunerConfig.from_dict(self.store.data["config"]).normalized()
         builder = Builder(config, self.abort_event, self._log)
         self._ensure_baseline(config, builder)
-        self._run_prefilter(config, builder)
+        if not config.full_ddmin:
+            self._run_prefilter(config, builder)
         self._run_compiled(config, builder)
         self._run_deep_review(config, builder)
         self._run_final(config, builder)
@@ -280,6 +281,9 @@ class PrunerEngine:
 
     def _run_compiled(self, config, builder):
         self._phase("ddmin")
+        if config.full_ddmin:
+            self._run_full_ddmin(config, builder)
+            return
         possible = sorted(set(self.store.data["excluded"]) | set(self.store.data["unknown"]))
         if not possible:
             with self.store.transaction() as state:
@@ -348,16 +352,54 @@ class PrunerEngine:
             state["unknown"] = []
             state["current_set"] = []
 
+    def _ddmin_progress(self, n, size):
+        self._log(f"[ddmin] 粒度 {n}/{size}")
+        with self.store.transaction() as state:
+            state["ddmin_progress"] = {"n": n, "size": size}
+
+    def _run_full_ddmin(self, config, builder):
+        with self.store.transaction() as state:
+            state["prefilter_pending"] = []
+            state["unknown"] = []
+            state["ddmin_progress"] = {"n": 0, "size": 0}
+        possible = sorted(item["name"] for item in self.store.data["candidates"])
+        if not possible:
+            return
+        self._log("[完整 ddmin] 复核全部候选，不使用预筛约束、日志剪枝或分层")
+        combined = self._compiled_test(config, builder, possible)
+        if combined.ok:
+            with self.store.transaction() as state:
+                state["required"] = []
+                state["excluded"] = possible
+                state["unknown"] = []
+                state["pruned_standalone_size"] = combined.size_bytes
+            return
+        def test_keep(keep):
+            self._checkpoint()
+            excluded = sorted(set(possible) - set(keep))
+            return self._compiled_test(config, builder, excluded).ok
+
+        keep = ddmin(possible, test_keep, on_progress=self._ddmin_progress)
+        self._check_abort()
+        with self.store.transaction() as state:
+            state["required"] = sorted(keep)
+            state["prefilter_required"] = []
+            state["excluded"] = sorted(set(possible) - keep)
+            state["unknown"] = []
+            state["current_set"] = []
+
     def _minimize_layer(self, config, builder, layer, base):
         layer = set(layer)
         base = set(base)
+        with self.store.transaction() as state:
+            state["ddmin_progress"] = {"n": 0, "size": 0}
         self._log(f"仅细分当前层的 {len(layer)} 个候选，固定保留其他已验证集合")
         def test_keep(keep):
             self._checkpoint()
             excluded = sorted(base | (layer - set(keep)))
             return self._compiled_test(config, builder, excluded).ok
 
-        keep = ddmin(layer, test_keep)
+        keep = ddmin(layer, test_keep, on_progress=self._ddmin_progress)
         return sorted(base | (layer - keep)), keep
 
     def _compiled_test(self, config, builder, excluded, kind="ddmin"):
@@ -455,6 +497,10 @@ class PrunerEngine:
     def _run_final(self, config, builder):
         self._phase("final")
         excluded = self.store.data["excluded"]
+        with self.store.transaction() as state:
+            if not state.get("pruned_standalone_size"):
+                state["pruned_standalone_size"] = state["baseline"].get("size_bytes", 0)
+            state["ddmin_progress"] = {"n": 0, "size": 0}
         self._log(f"[最终] 使用 {len(excluded)} 个排除参数构建 {config.mode}")
         if config.custom_onefile:
             self._log("[最终] 启用自定义 OnefileBootstrap.c，并复制 python3.dll 证书表")

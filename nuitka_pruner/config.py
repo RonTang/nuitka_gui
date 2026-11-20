@@ -25,6 +25,7 @@ class PrunerConfig:
     upx: bool = False
     whitelist: list[str] = field(default_factory=list)
     deep_review: bool = False
+    full_ddmin: bool = False
     deep_review_attempts: int = 5
     custom_onefile: bool = False
     signed_plugin: str = ""
@@ -61,6 +62,8 @@ class PrunerConfig:
             raise ValueError("并行 jobs 必须在 1 到 256 之间")
         if not 1 <= int(self.deep_review_attempts) <= 50:
             raise ValueError("深度复核次数必须在 1 到 50 之间")
+        if self.full_ddmin and self.deep_review:
+            raise ValueError("完整 ddmin 已复核所有候选，无需同时启用深度复核")
         if self.custom_onefile:
             if self.mode != "onefile":
                 raise ValueError("自定义壳与签名复制仅适用于 onefile 模式")

@@ -222,6 +222,18 @@ SMOKE_OK
 5. 只有失败且日志无法定位时，才进入分层 ddmin。
 6. 构建最终产物并再次冒烟。
 
+#### 完整 ddmin
+
+默认的快速分层模式优先减少编译次数，但不会编译复核所有预筛必需项，也会固定已经验证的分层集合。如果需要针对当前冒烟预言获得全集上的 1-最小保留集，可以启用“完整 ddmin”：
+
+- 跳过源码预筛对候选集合的约束。
+- 复核全部候选，包括预筛认为必需的模块。
+- 不使用异常日志预剪枝或分层固定集合。
+- 直接在全集上运行经典 ddmin，直到收敛。
+- 运行页显示当前粒度 `n / len(keep)`，并支持断点续跑。
+
+完整模式可能产生大量编译，不设置轮次预算，也不能弥补业务冒烟未覆盖的路径。它与深度复核互斥。若整组排除后测试通过，保留集已经为空，无需继续运行 ddmin。
+
 #### 深度复核预筛必需项
 
 源码直跑和 Nuitka 编译后的导入行为可能不同。某些模块在源码模式中必需，但编译后仍可安全排除。
@@ -267,6 +279,8 @@ SMOKE_OK
 - 动态导入警告。
 - nofollow 无法直接处理的大型数据目录。
 - 最终完整打包命令。
+- `verification_mode`：`fast-layered` 或 `full-ddmin`。
+- `smoke_mode`：`automatic` 或 `strict-custom`。
 
 支持复制命令，以及导出 JSON、BAT 和 PY 文件。
 
@@ -317,6 +331,12 @@ output/
 
 ```bash
 python -m nuitka_pruner main.py output --deep-review --deep-review-attempts 8
+```
+
+对全部候选运行完整 ddmin：
+
+```bash
+python -m nuitka_pruner main.py output --full-ddmin
 ```
 
 启用自定义 onefile 壳：
