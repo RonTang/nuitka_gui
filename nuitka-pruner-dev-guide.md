@@ -14,7 +14,7 @@
 - **窗口与 UI**：`pyminiwebview`（用户自研，github.com/RonTang/pyminiwebview）+ **原生 HTML/CSS/JS**。
 - UI 不复杂，**禁止引入任何前端第三方库**（不上 Vue / Element Plus / 任何 CDN 框架）。
 - Python 侧用 pyminiwebview 的 JS↔Python 桥暴露 API 供前端调用；具体 API 名称以该仓库文档/示例为准，封装成一层 `ui_bridge.py` 隔离。
-- **Python ≥ 3.12**，Windows 桌面（PowerShell 环境）。
+- **Python ≥ 3.9**，Windows 桌面（PowerShell 环境）。
 - **打包器**：Nuitka（standalone + onefile）。
 - 进程调度：`subprocess`（Windows 下注意 `creationflags=CREATE_NEW_PROCESS_GROUP`，保证能杀掉子树）。
 - 不引入 heavy 依赖；纯 stdlib 优先（zipfile/ElementTree 解析风格参照 grade_xlsx 项目的取舍）。

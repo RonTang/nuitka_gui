@@ -4,6 +4,7 @@ import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from .candidates import directory_size
 from .process import ProcessRunner
@@ -13,7 +14,7 @@ from .process import ProcessRunner
 class BuildResult:
     ok: bool
     build_returncode: int
-    smoke_returncode: int | None
+    smoke_returncode: Optional[int]
     build_s: float
     smoke_s: float
     size_bytes: int

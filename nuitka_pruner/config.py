@@ -44,8 +44,8 @@ class PrunerConfig:
         return cls(**result)
 
     def normalized(self):
-        if sys_version() < (3, 12):
-            raise ValueError("需要 Python 3.12 或更高版本")
+        if sys_version() < (3, 9):
+            raise ValueError("需要 Python 3.9 或更高版本")
         entry = Path(self.entry).expanduser().resolve()
         if not entry.is_file() or entry.suffix.lower() != ".py":
             raise ValueError("入口脚本必须是存在的 .py 文件")

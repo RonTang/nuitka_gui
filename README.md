@@ -22,7 +22,7 @@
 ## 环境要求
 
 - 64 位 Windows。
-- Python 3.12 或更高版本。
+- Python 3.9 或更高版本。
 - Microsoft Edge WebView2 Runtime，Windows 11 通常已预装。
 - Nuitka。
 - 仓库已附带 `pyminiwebview.pyd`、Win32 和 helpers 组件，无需另行安装 pyminiwebview。
@@ -44,7 +44,7 @@ cd nuitka_gui
 建议使用虚拟环境：
 
 ```bash
-py -3.13 -m venv .venv
+py -3.9 -m venv .venv
 .venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install nuitka
 ```
@@ -55,7 +55,7 @@ py -3.13 -m venv .venv
 
 仓库根目录已包含 64 位 Windows abi3 原生扩展 `pyminiwebview.pyd`，并附带 `pyminiwebview_win32` 和 `pyminiwebview_helpers`。从仓库根目录运行 `pruner.py` 时，Python 会直接加载这些文件，无需另外安装 pyminiwebview。
 
-该扩展基于 abi3，但本打包器自身仍要求 Python 3.12 或更高版本。目标机器还需要 WebView2 Runtime。
+该扩展使用 `Py_LIMITED_API=0x03090000` Stable ABI（abi3），支持 64 位 CPython 3.9 及更高版本；打包器本身也支持 Python 3.9+。目标机器还需要 WebView2 Runtime。
 
 如果需要更新扩展，可从 pyminiwebview 项目的 Release 或 GitHub Actions Artifacts 获取新版 wheel：
 
