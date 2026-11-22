@@ -29,6 +29,7 @@ class PrunerConfig:
     deep_review_attempts: int = 5
     custom_onefile: bool = False
     signed_plugin: str = ""
+    onefile_bootstrap_name: str = "custom onefile bootstrap"
     jobs: int = field(default_factory=lambda: os.cpu_count() or 4)
     timeout_minutes: int = 20
     auto_smoke: bool = True
@@ -64,7 +65,10 @@ class PrunerConfig:
             raise ValueError("深度复核次数必须在 1 到 50 之间")
         if self.full_ddmin and self.deep_review:
             raise ValueError("完整 ddmin 已复核所有候选，无需同时启用深度复核")
+        self.onefile_bootstrap_name = self.onefile_bootstrap_name.strip()
         if self.custom_onefile:
+            if not self.onefile_bootstrap_name:
+                raise ValueError("custom onefile bootstrap 标识不能为空")
             if self.mode != "onefile":
                 raise ValueError("自定义壳与签名复制仅适用于 onefile 模式")
             plugin = Path(self.signed_plugin).expanduser().resolve()

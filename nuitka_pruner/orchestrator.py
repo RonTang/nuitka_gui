@@ -503,7 +503,10 @@ class PrunerEngine:
             state["ddmin_progress"] = {"n": 0, "size": 0}
         self._log(f"[最终] 使用 {len(excluded)} 个排除参数构建 {config.mode}")
         if config.custom_onefile:
-            self._log("[最终] 启用自定义 OnefileBootstrap.c，并复制 python3.dll 证书表")
+            self._log(
+                f"[最终] 启用自定义 OnefileBootstrap.c（标识：{config.onefile_bootstrap_name}），"
+                "并复制 python3.dll 证书表"
+            )
         result = builder.build_and_smoke(excluded, "final", final=True)
         self._check_abort()
         self._record("final", excluded, result)

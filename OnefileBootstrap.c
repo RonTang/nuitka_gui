@@ -1207,7 +1207,7 @@ int main(int argc, char **argv) {
     char header[3];
     readChunk(&header, sizeof(header));
 
-    if (header[0] != 'G' || header[1] != 'R') {
+    if (header[0] != 'T' || header[1] != 'L') {
         fatalErrorHeaderAttachedData();
     }
 

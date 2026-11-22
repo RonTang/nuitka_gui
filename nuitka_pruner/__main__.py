@@ -26,6 +26,7 @@ def parser():
     result.add_argument("--deep-review-attempts", type=int, default=5)
     result.add_argument("--custom-onefile", action="store_true")
     result.add_argument("--signed-plugin", default="")
+    result.add_argument("--onefile-bootstrap-name", default="custom onefile bootstrap")
     result.add_argument("--no-lto", action="store_true")
     return result
 
@@ -51,6 +52,7 @@ def main():
         "deep_review_attempts": args.deep_review_attempts,
         "custom_onefile": args.custom_onefile,
         "signed_plugin": args.signed_plugin,
+        "onefile_bootstrap_name": args.onefile_bootstrap_name,
         "lto": not args.no_lto,
     }
     engine = PrunerEngine(lambda event, payload: print(payload, flush=True) if event == "onLog" else None)

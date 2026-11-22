@@ -39,6 +39,7 @@ def nuitka_command(config, excluded, final=False, output_dir=None, report_path=N
         command.append("--onefile")
         if config.custom_onefile:
             command.append(f"--user-plugin={config.signed_plugin}")
+            command.append(f"--onefile-bootstrap-name={config.onefile_bootstrap_name}")
     for name in sorted(set(excluded)):
         command.append(f"--nofollow-import-to={name}")
     if report_path:
