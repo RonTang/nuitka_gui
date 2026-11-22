@@ -109,6 +109,8 @@ function toast(message,error=false){const el=$('toast');el.textContent=message;e
 function errorText(e){return e&&e.error?e.error.message:(e&&e.message?e.message:String(e))}
 async function api(name,...args){return await window[name](...args)}
 function setMaximized(maximized){const button=$('maximize-button');button.innerHTML=maximized?'<svg viewBox="0 0 16 16"><path d="M5 6V3.5h7.5V11H10"/><rect x="3.5" y="6" width="6.5" height="6.5" rx="1"/></svg>':'<svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1"/></svg>';button.title=maximized?'还原':'最大化';button.setAttribute('aria-label',button.title)}
+function syncMaximizeRegion(){const rect=$('maximize-button').getBoundingClientRect(),scale=window.devicePixelRatio||1;__window_set_maximize_rect(rect.left*scale,rect.top*scale,rect.right*scale,rect.bottom*scale)}
+new ResizeObserver(syncMaximizeRegion).observe($('maximize-button'));window.addEventListener('resize',syncMaximizeRegion);syncMaximizeRegion();
 function minimizeWindow(){$('window-controls').classList.add('suppress-hover');__window_minimize()}
 $('window-controls').addEventListener('pointerleave',()=>$('window-controls').classList.remove('suppress-hover'));
 function syncPruneModes(){const full=$('full_ddmin').checked,deep=$('deep_review').checked;$('deep_review').disabled=full;$('full_ddmin').disabled=deep;$('deep_review_attempts').disabled=full}

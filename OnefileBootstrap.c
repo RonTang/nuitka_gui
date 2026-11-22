@@ -130,44 +130,118 @@
 // For tracing outputs if enabled at compile time.
 #include "nuitka/tracing.h"
 
-static char const grade_bootstrap_name[] = "GradeAnalytics custom onefile bootstrap";
+static char const grade_bootstrap_name[] = "custom onefile bootstrap";
+
+#if defined(_WIN32)
+// Convert a narrow (UTF-8) detail message into a wide string buffer.
+static void convertDetailToWide(char const *detail, wchar_t *wide_detail, size_t capacity) {
+    MultiByteToWideChar(CP_UTF8, 0, detail, -1, wide_detail, (int)(capacity / sizeof(wchar_t)));
+}
+
+// Show the detail message in a message box titled with the bootstrap name.
+// MessageBoxW is resolved on demand, so the import table stays limited to
+// KERNEL32/SHELL32. Returns false when no message box could be shown, so the
+// caller can still fall back to standard error output.
+static bool showErrorBoxWide(wchar_t const *detail, DWORD error_code) {
+    wchar_t wide_system[512] = {0};
+    wchar_t wide_text[1024];
+    wchar_t wide_title[256];
+
+    if (error_code != 0) {
+        FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error_code, 0, wide_system,
+                       sizeof(wide_system) / sizeof(wide_system[0]), NULL);
+    }
+
+    _snwprintf(wide_text, sizeof(wide_text) / sizeof(wide_text[0]), L"%ls\n%ls", detail, wide_system);
+    convertDetailToWide(grade_bootstrap_name, wide_title, sizeof(wide_title));
+
+    HMODULE user32_module = LoadLibraryW(L"user32.dll");
+    if (user32_module == NULL) {
+        return false;
+    }
+
+    typedef int(WINAPI *MessageBoxWFunction)(HWND, LPCWSTR, LPCWSTR, UINT);
+    MessageBoxWFunction box_function = (MessageBoxWFunction)GetProcAddress(user32_module, "MessageBoxW");
+
+    if (box_function == NULL) {
+        FreeLibrary(user32_module);
+        return false;
+    }
+
+    box_function(NULL, wide_text, wide_title, MB_OK | MB_ICONERROR);
+    FreeLibrary(user32_module);
+    return true;
+}
+#endif
 
 static void fatalError(char const *message) {
+#if defined(_WIN32)
+    wchar_t wide_detail[1024];
+    convertDetailToWide(message, wide_detail, sizeof(wide_detail));
+    if (showErrorBoxWide(wide_detail, 0)) {
+        exit(2);
+    }
+#endif
     fprintf(stderr, "%s: %s\n", grade_bootstrap_name, message);
     exit(2);
 }
 
 static void fatalIOError(char const *message, error_code_t error_code) {
+#if defined(_WIN32)
+    wchar_t wide_detail[512];
+    convertDetailToWide(message, wide_detail, sizeof(wide_detail));
+    if (showErrorBoxWide(wide_detail, (DWORD)error_code)) {
+        exit(2);
+    }
+#endif
     printOSErrorMessage(message, error_code);
     exit(2);
 }
 
+
 // Failure to expand the template for where to extract to.
 static void fatalErrorTempFiles(void) {
-    fatalIOError("Error, couldn't unpack file to target path.", getLastErrorCode());
+    fatalIOError("The application could not extract its files.", getLastErrorCode());
 }
 
 #if _NUITKA_ONEFILE_COMPRESSION_BOOL == 1
-static void fatalErrorAttachedData(void) { fatalError("Error, couldn't decode attached data."); }
+static void fatalErrorAttachedData(void) { fatalError("The application data is damaged or incomplete."); }
 #endif
 
-static void fatalErrorHeaderAttachedData(void) { fatalError("Error, couldn't find attached data header."); }
+static void fatalErrorHeaderAttachedData(void) { fatalError("The application data format is invalid."); }
 
 // Out of memory error.
 #if !defined(_WIN32) || _NUITKA_ONEFILE_COMPRESSION_BOOL == 1
-static void fatalErrorMemory(void) { fatalError("Error, couldn't allocate memory."); }
+static void fatalErrorMemory(void) { fatalError("There is not enough memory to start the application."); }
 #endif
 
 // Could not launch child process.
 static void fatalErrorChild(char const *message, error_code_t error_code) { fatalIOError(message, error_code); }
 
 static void fatalErrorTempFileCreate(filename_char_t const *filename) {
-    fprintf(stderr, "Error, failed to open '" FILENAME_FORMAT_STR "' for writing.\n", filename);
+#if defined(_WIN32)
+    wchar_t wide_detail[1024];
+    _snwprintf(wide_detail, sizeof(wide_detail) / sizeof(wide_detail[0]),
+               L"The application could not create a required file:\n%ls", filename);
+    if (showErrorBoxWide(wide_detail, 0)) {
+        exit(2);
+    }
+#endif
+    fprintf(stderr, "The application could not create a required file: '" FILENAME_FORMAT_STR "'.\n", filename);
     exit(2);
 }
 
 static void fatalErrorSpec(filename_char_t const *spec) {
-    fprintf(stderr, "Error, couldn't runtime expand spec '" FILENAME_FORMAT_STR "'.\n", spec);
+    (void)spec;
+#if defined(_WIN32)
+    wchar_t wide_detail[1024];
+    _snwprintf(wide_detail, sizeof(wide_detail) / sizeof(wide_detail[0]),
+               L"The application could not prepare its temporary directory.");
+    if (showErrorBoxWide(wide_detail, 0)) {
+        abort();
+    }
+#endif
+    fprintf(stderr, "The application could not prepare its temporary directory.\n");
     abort();
 }
 
@@ -741,7 +815,13 @@ static void cleanupChildProcess(bool send_sigint) {
             BOOL res = GenerateConsoleCtrlEvent(CTRL_C_EVENT, GetProcessId(handle_process));
 
             if (res == false) {
-                printOSErrorMessage("Failed to send CTRL-C to child process.", GetLastError());
+                #if defined(_WIN32)
+                wchar_t wide_detail[128];
+                convertDetailToWide("Failed to stop the application process.", wide_detail, sizeof(wide_detail));
+                showErrorBoxWide(wide_detail, GetLastError());
+#else
+                printOSErrorMessage("Failed to stop the application process.", GetLastError());
+#endif
                 // No error exit is done, we still want to cleanup when it does exit
             }
 #else
@@ -971,7 +1051,7 @@ static int runPythonCodeDLL(filename_char_t const *dll_filename, int argc, nativ
                        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32 | LOAD_LIBRARY_SEARCH_USER_DIRS);
 
     if (!hGetProcIDDLL) {
-        fatalIOError("Error, load DLL.", getLastErrorCode());
+        fatalIOError("The application could not load its runtime.", getLastErrorCode());
 
         return EXIT_FAILURE;
     }
@@ -981,7 +1061,7 @@ static int runPythonCodeDLL(filename_char_t const *dll_filename, int argc, nativ
     nuitka_dll_function_ptr nuitka_dll_function = (nuitka_dll_function_ptr)GetProcAddress(hGetProcIDDLL, "run_code");
 
     if (nuitka_dll_function == NULL) {
-        fatalError("Error, DLL entry point not found.");
+        fatalError("The application runtime is damaged or incompatible.");
 
         return EXIT_FAILURE;
     }
@@ -1183,7 +1263,7 @@ int main(int argc, char **argv) {
 #if defined(_WIN32)
         bool_res = SetConsoleCtrlHandler(ourConsoleCtrlHandler, true);
         if (bool_res == false) {
-            fatalError("Error, failed to register signal handler.");
+            fatalError("The application could not initialize its process handler.");
         }
 #else
         {
@@ -1428,7 +1508,7 @@ int main(int argc, char **argv) {
     NUITKA_PRINT_TIMING("ONEFILE: Started slave process.");
 
     if (bool_res == false) {
-        fatalErrorChild("Error, couldn't launch child", GetLastError());
+        fatalErrorChild("The application could not start its main process", GetLastError());
     }
 
     CloseHandle(pi.hThread);
@@ -1479,7 +1559,7 @@ int main(int argc, char **argv) {
 
         cleanupChildProcess(false);
 
-        fatalErrorChild("Error, couldn't launch child (fork)", error_code);
+        fatalErrorChild("The application could not start its main process (fork)", error_code);
         exit_code = 2;
     } else if (pid == 0) {
         // Child process
@@ -1501,7 +1581,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        fatalErrorChild("Error, couldn't launch child (exec)", errno);
+        fatalErrorChild("The application could not start its main process (exec)", errno);
         exit_code = 2;
     } else {
         // Onefile bootstrap process
