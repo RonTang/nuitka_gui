@@ -28,6 +28,15 @@ def split_extra_args(value):
     return shlex.split(value or "", posix=True)
 
 
+def nuitka_environment(env=None):
+    env = dict(os.environ if env is None else env)
+    if os.name == "nt":
+        cl_flags = env.get("CL", "")
+        if "/utf-8" not in cl_flags.lower():
+            env["CL"] = (cl_flags + " /utf-8").strip()
+    return env
+
+
 def nuitka_command(config, excluded, final=False, output_dir=None, report_path=None):
     output_dir = Path(output_dir or (Path(config.output_dir) / "final_dist"))
     command = [
@@ -171,7 +180,7 @@ class Builder:
         )
         build = self.runner.run(
             command, log_path, self.config.timeout_minutes * 60,
-            cwd=Path(self.config.entry).parent,
+            cwd=Path(self.config.entry).parent, env=nuitka_environment(),
         )
         executable = self._executable(output_dir, final)
         size = directory_size(executable if final and self.config.mode == "onefile" else output_dir)

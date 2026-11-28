@@ -1,6 +1,7 @@
 import inspect
 import json
 import logging
+import weakref
 
 from .js import _dumps_json
 
@@ -47,13 +48,18 @@ class Bridge:
 
         Must be called before ``view.close()``. The method is idempotent.
         """
-        if self._view is None:
+        view = self._view
+        if view is None:
             return
-        for name in list(self._names):
+        names = list(self._names)
+        self._detach()
+        for name in names:
             try:
-                self._view.js_unbind(name)
+                view.js_unbind(name)
             except KeyError:
                 pass
+
+    def _detach(self):
         self._names.clear()
         self._view = None
 
@@ -114,8 +120,23 @@ class Bridge:
             raise RuntimeError("Bridge is closed")
 
         view = self._view
+        bridge_ref = weakref.ref(self)
 
         def callback(request_id, request_json):
+            bridge = bridge_ref()
+            if bridge is not None and bridge._view is None:
+                return
+
+            def respond(request_id, status, response):
+                bridge = bridge_ref()
+                if bridge is not None and bridge._view is None:
+                    return
+                try:
+                    view.js_return(request_id, status, response)
+                except RuntimeError as error:
+                    if "closed" not in str(error):
+                        raise
+
             try:
                 arguments = json.loads(
                     request_json, parse_constant=_reject_nonstandard_number
@@ -127,9 +148,9 @@ class Bridge:
             except Exception as error:
                 _logger.exception("Bridge call %r failed", name)
                 response = _dumps_json(_error_result(error))
-                view.js_return(request_id, 1, response)
+                respond(request_id, 1, response)
             else:
-                view.js_return(request_id, 0, response)
+                respond(request_id, 0, response)
 
         self._view.js_bind(name, callback)
         self._names.add(name)

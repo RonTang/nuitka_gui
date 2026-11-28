@@ -55,15 +55,19 @@ def write_reports(config, state):
     )
     bat_path = output / "final_command.bat"
     bat_path.write_text(
-        "@echo off\n" + command_text(command) + "\n", encoding="utf-8-sig"
+        "@echo off\nset \"CL=%CL% /utf-8\"\n" + command_text(command) + "\n",
+        encoding="utf-8-sig",
     )
     arguments = command[3:]
     py_path = output / "final_command.py"
     py_path.write_text(
-        "import subprocess\nimport sys\n\nNUITKA_ARGS = "
+        "import os\nimport subprocess\nimport sys\n\nNUITKA_ARGS = "
         + pprint.pformat(arguments, width=100, sort_dicts=False)
         + "\n\nif __name__ == '__main__':\n"
-          "    raise SystemExit(subprocess.call([sys.executable, '-m', 'nuitka', *NUITKA_ARGS]))\n",
+          "    env = os.environ.copy()\n"
+          "    env['CL'] = (env.get('CL', '') + ' /utf-8').strip()\n"
+          "    raise SystemExit(subprocess.call(\n"
+          "        [sys.executable, '-m', 'nuitka', *NUITKA_ARGS], env=env))\n",
         encoding="utf-8",
     )
     return report, [report_path, bat_path, py_path]
